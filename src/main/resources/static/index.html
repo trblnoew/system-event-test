@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>User Test</title>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+
+<h2>User 등록</h2>
+
+<input id="name" placeholder="name">
+<input id="email" placeholder="email">
+<button id="saveBtn">저장</button>
+
+<h2>User 목록</h2>
+<ul id="list"></ul>
+
+<script>
+    // 등록
+    $('#saveBtn').on('click', function () {
+        $.ajax({
+            url: '/api/users',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                name: $('#name').val(),
+                email: $('#email').val()
+            }),
+            success: function () {
+                loadUsers();
+            },
+            error: function (err) {
+                console.error(err);
+            }
+        });
+    });
+
+    // 목록 조회
+    function loadUsers() {
+        $.ajax({
+            url: '/api/users',
+            type: 'GET',
+            success: function (data) {
+                $('#list').empty();
+                data.forEach(function (u) {
+                    $('#list').append(
+                        '<li>' + u.name + ' (' + u.email + ')</li>'
+                    );
+                });
+            },
+            error: function (err) {
+                console.error(err);
+            }
+        });
+    }
+
+    // 최초 로딩
+    loadUsers();
+</script>
+
+</body>
+</html>
