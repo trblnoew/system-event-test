@@ -1,7 +1,9 @@
 package com.example.serverexam.domain.event;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -14,12 +16,28 @@ public class EventController {
         this.eventRepository = eventRepository;
     }
 
-    @GetMapping
-    public List<Event> getEvent() {
-        return eventRepository.findAll();
+    @GetMapping("/recent")
+    public List<Event> getRecentEvents() {
+        return eventRepository.findTop50ByOrderByCreatedAtDesc();
     }
 
+    @GetMapping("/stats/errors/hourly")
+    public List<HourlyErrorCount> getHourlyErrorStats(
+            @RequestParam String severity,
+            @RequestParam String start,
+            @RequestParam String end
+    ) {
+        return eventRepository.countSeverityPerHour(
+                severity,
+                LocalDateTime.parse(start),
+                LocalDateTime.parse(end)
+        );
+    }
+
+
+
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     public void collectEvent(@RequestBody EventRequest request) {
 
         Event event = new Event(

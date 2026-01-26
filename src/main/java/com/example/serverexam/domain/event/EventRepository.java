@@ -1,22 +1,27 @@
 package com.example.serverexam.domain.event;
 
-
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 public interface EventRepository extends JpaRepository<Event, Long> {
 
-    // 최근 이벤트 조회 (시간 기준)
-    List<Event> findByCreatedAtAfter(LocalDateTime time);
+    List<Event> findTop50ByOrderByCreatedAtDesc();
 
-    // 특정 타입 이벤트 조회 (ERROR 등)
-    List<Event> findByType(String type);
+    List<Event> findByStatus(EventStatus status);
 
-    // 심각도 기준 이상 이벤트 조회
-    List<Event> findBySeverityGreaterThanEqual(int severity);
+    List<Event> findByStatusAndStartAtAfter(
+            EventStatus status,
+            LocalDateTime now
+    );
 
-    // 특정 소스 + 타입 조합
-    List<Event> findBySourceAndType(String source, String type);
+    List<Event> findByTitleContaining(String keyword);
+
+    long countByStatus(EventStatus status);
+
+    List<HourlyErrorCount> countSeverityPerHour(String severity, LocalDateTime parse, LocalDateTime parse1);
 }
+
