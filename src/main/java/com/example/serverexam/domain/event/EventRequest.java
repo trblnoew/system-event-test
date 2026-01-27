@@ -5,7 +5,6 @@ public class EventRequest {
     private String type;
     private String source;
     private String message;
-    private String severity;
 
     // 기본 생성자 (Spring이 JSON → 객체 변환할 때 필요)
     public EventRequest() {
@@ -23,7 +22,4 @@ public class EventRequest {
         return message;
     }
 
-    public String getSeverity() {
-        return severity;
-    }
 }

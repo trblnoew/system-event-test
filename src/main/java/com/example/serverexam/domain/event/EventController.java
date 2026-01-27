@@ -1,5 +1,6 @@
 package com.example.serverexam.domain.event;
 
+import com.example.serverexam.domain.event.dto.EventResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,8 +18,17 @@ public class EventController {
     }
 
     @GetMapping("/recent")
-    public List<Event> getRecentEvents() {
-        return eventRepository.findTop50ByOrderByCreatedAtDesc();
+    public List<EventResponse> getRecentEvents() {
+
+        return eventRepository.findTop50ByOrderByCreatedAtDesc().stream().map(
+                event -> new EventResponse(
+                        event.getId(),
+                        event.getTitle(),
+                        event.getSource(),
+                        event.getMessage(),
+                        event.getCreatedAt()
+
+                )).toList();
     }
 
     @GetMapping("/stats/errors/hourly")
@@ -34,6 +44,18 @@ public class EventController {
         );
     }
 
+    @GetMapping
+    public List<Event> getAllEvents(){
+        return eventRepository.findAll();
+    }
+
+    @GetMapping("/range")
+    public List<Event> getEventsByRange(
+            @RequestParam LocalDateTime start,
+            @RequestParam LocalDateTime end
+    ) {
+        return eventRepository.findByCreatedAtBetween(start, end);
+    }
 
 
     @PostMapping
@@ -43,8 +65,7 @@ public class EventController {
         Event event = new Event(
                 request.getType(),
                 request.getSource(),
-                request.getMessage(),
-                request.getSeverity()
+                request.getMessage()
         );
 
         eventRepository.save(event);
