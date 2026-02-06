@@ -18,3 +18,9 @@ spring:
     console:
       enabled: true
       path: /h2-console
+
+monitoring:
+  alert-window: 10m
+  error-rate-threshold: 0.25
+  minimum-events-for-alert: 20
+  ingest-batch-size: 200
