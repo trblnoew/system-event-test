@@ -1,35 +1,184 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>User Test</title>
-
+    <title>System Event Monitor</title>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <style>
+        body {
+            font-family: "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+            margin: 24px;
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+        h1 {
+            margin-bottom: 4px;
+        }
+        .grid {
+            display: grid;
+            gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        }
+        .card {
+            background: #fff;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #d1d5db;
+            margin-top: 4px;
+        }
+        button {
+            margin-top: 12px;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            background: #2563eb;
+            color: #fff;
+            cursor: pointer;
+        }
+        button.secondary {
+            background: #64748b;
+        }
+        ul {
+            padding-left: 16px;
+        }
+        .metric {
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .muted {
+            color: #6b7280;
+            font-size: 13px;
+        }
+        .row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .tag {
+            background: #e2e8f0;
+            border-radius: 999px;
+            padding: 2px 10px;
+            font-size: 12px;
+        }
+    </style>
 </head>
 <body>
 
-<h2>User 등록</h2>
+<h1>시스템 이벤트 모니터링</h1>
+<p class="muted">운영 관점 이벤트를 수집하고, 오류율/트래픽을 집계하며 임계치 기반 알림을 확인합니다.</p>
 
-<input id="name" placeholder="name">
-<input id="email" placeholder="email">
-<button id="saveBtn">저장</button>
+<div class="grid">
+    <div class="card">
+        <h2>이벤트 수집</h2>
+        <label>서비스 이름</label>
+        <input id="serviceName" placeholder="order-service">
+        <label>이벤트 타입</label>
+        <input id="eventType" placeholder="PAYMENT_FAILED">
+        <label>심각도</label>
+        <select id="severity">
+            <option value="INFO">INFO</option>
+            <option value="WARN">WARN</option>
+            <option value="ERROR">ERROR</option>
+        </select>
+        <label>메시지</label>
+        <textarea id="message" rows="3" placeholder="결제 승인 실패: timeout"></textarea>
+        <div class="row">
+            <button id="sendEvent">이벤트 전송</button>
+            <button class="secondary" id="sendBurst">에러 5건 생성</button>
+        </div>
+    </div>
+    <div class="card">
+        <h2>요약 지표 (최근 60분)</h2>
+        <div class="metric" id="totalEvents">0</div>
+        <div class="muted">총 이벤트</div>
+        <div class="metric" id="errorRate">0%</div>
+        <div class="muted">오류율</div>
+        <div id="topTypes"></div>
+    </div>
+    <div class="card">
+        <h2>트래픽 버킷</h2>
+        <ul id="trafficBuckets"></ul>
+    </div>
+    <div class="card">
+        <h2>최근 알림</h2>
+        <ul id="alerts"></ul>
+    </div>
+</div>
 
-<h2>User 목록</h2>
-<ul id="list"></ul>
+<div class="card" style="margin-top: 16px;">
+    <h2>최근 수집 이벤트</h2>
+    <ul id="events"></ul>
+</div>
 
 <script>
-    // 등록
-    $('#saveBtn').on('click', function () {
+    function refreshOverview() {
+        $.get('/api/system-events/metrics/overview?minutes=60', function (data) {
+            $('#totalEvents').text(data.totalEvents);
+            $('#errorRate').text(Math.round(data.errorRate * 100) + '%');
+            const tags = data.topEventTypes.map(function (type) {
+                return '<span class="tag">' + type.eventType + ' ' + type.count + '</span>';
+            });
+            $('#topTypes').html(tags.join(' '));
+        });
+    }
+
+    function refreshTraffic() {
+        $.get('/api/system-events/metrics/traffic?minutes=60&intervalMinutes=10', function (data) {
+            $('#trafficBuckets').empty();
+            data.forEach(function (bucket) {
+                const label = new Date(bucket.start).toLocaleTimeString();
+                $('#trafficBuckets').append('<li>' + label + ' ~ ' + bucket.totalEvents + '건 (에러 ' + bucket.errorEvents + ')</li>');
+            });
+        });
+    }
+
+    function refreshAlerts() {
+        $.get('/api/system-events/alerts/recent?minutes=240', function (data) {
+            $('#alerts').empty();
+            if (data.length === 0) {
+                $('#alerts').append('<li>현재 알림 없음</li>');
+                return;
+            }
+            data.forEach(function (alert) {
+                $('#alerts').append('<li>' + alert.message + ' - ' + Math.round(alert.errorRate * 100) + '%</li>');
+            });
+        });
+    }
+
+    function refreshEvents() {
+        $.get('/api/system-events/recent', function (data) {
+            $('#events').empty();
+            data.forEach(function (event) {
+                $('#events').append('<li>[' + event.severity + '] ' + event.serviceName + ' - ' + event.eventType + ' | ' + event.message + '</li>');
+            });
+        });
+    }
+
+    $('#sendEvent').on('click', function () {
         $.ajax({
-            url: '/api/users',
+            url: '/api/system-events',
             type: 'POST',
             contentType: 'application/json',
             data: JSON.stringify({
-                name: $('#name').val(),
-                email: $('#email').val()
+                serviceName: $('#serviceName').val(),
+                eventType: $('#eventType').val(),
+                severity: $('#severity').val(),
+                message: $('#message').val()
             }),
             success: function () {
-                loadUsers();
+                refreshOverview();
+                refreshEvents();
             },
             error: function (err) {
                 console.error(err);
@@ -37,27 +186,37 @@
         });
     });
 
-    // 목록 조회
-    function loadUsers() {
-        $.ajax({
-            url: '/api/users',
-            type: 'GET',
-            success: function (data) {
-                $('#list').empty();
-                data.forEach(function (u) {
-                    $('#list').append(
-                        '<li>' + u.name + ' (' + u.email + ')</li>'
-                    );
-                });
-            },
-            error: function (err) {
-                console.error(err);
-            }
-        });
-    }
+    $('#sendBurst').on('click', function () {
+        for (let i = 0; i < 5; i++) {
+            $.ajax({
+                url: '/api/system-events',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    serviceName: 'payment-service',
+                    eventType: 'PAYMENT_FAILED',
+                    severity: 'ERROR',
+                    message: '결제 승인 실패 (샘플)'
+                })
+            });
+        }
+        setTimeout(function () {
+            refreshOverview();
+            refreshAlerts();
+            refreshEvents();
+        }, 500);
+    });
 
-    // 최초 로딩
-    loadUsers();
+    refreshOverview();
+    refreshTraffic();
+    refreshAlerts();
+    refreshEvents();
+    setInterval(function () {
+        refreshOverview();
+        refreshTraffic();
+        refreshAlerts();
+        refreshEvents();
+    }, 15000);
 </script>
 
 </body>
